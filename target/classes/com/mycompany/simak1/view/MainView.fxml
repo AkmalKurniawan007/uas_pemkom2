@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane prefHeight="600.0" prefWidth="900.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.mycompany.simak1.controller.MainController">
+   <top>
+      <MenuBar BorderPane.alignment="CENTER">
+         <menus>
+            <Menu mnemonicParsing="false" text="%menu.file">
+               <items>
+                  <MenuItem mnemonicParsing="false" onAction="#handleExit" text="%menu.file.exit" />
+               </items>
+            </Menu>
+            <Menu mnemonicParsing="false" text="%menu.language">
+               <items>
+                  <MenuItem mnemonicParsing="false" onAction="#handleLanguageIndonesian" text="Indonesia" />
+                  <MenuItem mnemonicParsing="false" onAction="#handleLanguageEnglish" text="English" />
+                  <MenuItem mnemonicParsing="false" onAction="#handleLanguageGerman" text="Deutsch" />
+                  <MenuItem mnemonicParsing="false" onAction="#handleLanguageJapanese" text="日本語" />
+               </items>
+            </Menu>
+         </menus>
+      </MenuBar>
+   </top>
+   <center>
+      <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE" BorderPane.alignment="CENTER">
+         <tabs>
+            <Tab text="%tab.anggota">
+               <content>
+                  <BorderPane>
+                     <center>
+                        <TableView fx:id="tableViewAnggota" BorderPane.alignment="CENTER">
+                           <columns>
+                              <TableColumn fx:id="idKolom" prefWidth="40.0" text="%anggota.kolom.id" />
+                              <TableColumn fx:id="namaKolom" prefWidth="150.0" text="%anggota.kolom.nama" />
+                              <TableColumn fx:id="noIndukKolom" prefWidth="120.0" text="%anggota.kolom.noInduk" />
+                              <TableColumn fx:id="totalKasKolom" prefWidth="120.0" text="%anggota.kolom.totalKas" />
+                              <TableColumn fx:id="jurusanKolom" prefWidth="150.0" text="%anggota.kolom.jurusan" />
+                              <TableColumn fx:id="tahunMasukKolom" prefWidth="100.0" text="%anggota.kolom.tahunMasuk" />
+                              <TableColumn fx:id="jabatanKolom" prefWidth="120.0" text="%anggota.kolom.jabatan" />
+                           </columns>
+                           <BorderPane.margin>
+                              <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                           </BorderPane.margin>
+                        </TableView>
+                     </center>
+                     <right>
+                        <VBox prefWidth="220.0" spacing="10.0" BorderPane.alignment="CENTER">
+                           <padding>
+                              <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                           </padding>
+                           <children>
+                              <Label text="%anggota.title">
+                                 <font>
+                                    <Font name="System Bold" size="14.0" />
+                                 </font>
+                              </Label>
+                              <GridPane hgap="10.0" vgap="10.0">
+                                 <children>
+                                    <Label text="%anggota.label.nama" />
+                                    <TextField fx:id="fieldNama" GridPane.columnIndex="1" />
+                                    <Label text="%anggota.label.noInduk" GridPane.rowIndex="1" />
+                                    <TextField fx:id="fieldNoInduk" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                                    <Label text="%anggota.label.jurusan" GridPane.rowIndex="2" />
+                                    <TextField fx:id="fieldJurusan" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                    <Label text="%anggota.label.thnMasuk" GridPane.rowIndex="3" />
+                                    <TextField fx:id="fieldTahunMasuk" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                                    <Label text="%anggota.label.jabatan" GridPane.rowIndex="4" />
+                                    <TextField fx:id="fieldJabatan" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                                 </children>
+                                 <columnConstraints>
+                                    <ColumnConstraints maxWidth="90.0" minWidth="43.0" prefWidth="84.0" />
+                                    <ColumnConstraints maxWidth="147.0" minWidth="100.0" prefWidth="106.0" />
+                                 </columnConstraints>
+                                 <rowConstraints>
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                 </rowConstraints>
+                              </GridPane>
+                              <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleTambahAnggota" text="%anggota.button.tambah" />
+                              <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleEditAnggota" text="%anggota.button.edit" />
+                              <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleHapusAnggota" text="%anggota.button.hapus" />
+                              <Separator prefWidth="200.0" />
+                              <Label text="%anggota.label.fiturLanjutan">
+                                 <font>
+                                    <Font name="System Bold" size="14.0" />
+                                 </font>
+                              </Label>
+                              <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleGenerateReport" text="%anggota.button.laporan" />
+                           </children>
+                        </VBox>
+                     </right>
+                  </BorderPane>
+               </content>
+            </Tab>
+            <Tab text="%tab.acara">
+               <content>
+                  <BorderPane>
+                     <center>
+                        <TableView fx:id="tableViewAcara" BorderPane.alignment="CENTER">
+                           <columns>
+                              <TableColumn fx:id="idAcaraKolom" prefWidth="40.0" text="%acara.kolom.id" />
+                              <TableColumn fx:id="namaAcaraKolom" prefWidth="200.0" text="%acara.kolom.namaAcara" />
+                              <TableColumn fx:id="tanggalKolom" prefWidth="120.0" text="%acara.kolom.tanggal" />
+                              <TableColumn fx:id="lokasiKolom" prefWidth="180.0" text="%acara.kolom.lokasi" />
+                              <TableColumn fx:id="budgetKolom" prefWidth="120.0" text="%acara.kolom.budget" />
+                           </columns>
+                           <BorderPane.margin>
+                              <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                           </BorderPane.margin>
+                        </TableView>
+                     </center>
+                     <right>
+                        <VBox prefWidth="250.0" spacing="10.0" BorderPane.alignment="CENTER">
+                           <padding>
+                              <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                           </padding>
+                           <children>
+                              <Label text="%acara.title">
+                                 <font>
+                                    <Font name="System Bold" size="14.0" />
+                                 </font>
+                              </Label>
+                              <GridPane hgap="10.0" vgap="10.0">
+                                 <children>
+                                    <Label text="%acara.label.namaAcara" />
+                                    <TextField fx:id="fieldNamaAcara" GridPane.columnIndex="1" />
+                                    <Label text="%acara.label.tanggal" GridPane.rowIndex="1" />
+                                    <DatePicker fx:id="datePickerTanggal" prefWidth="170.0" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                                    <Label text="%acara.label.lokasi" GridPane.rowIndex="2" />
+                                    <TextField fx:id="fieldLokasi" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                    <Label text="%acara.label.budget" GridPane.rowIndex="3" />
+                                    <TextField fx:id="fieldBudget" promptText="%acara.prompt.budget" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                                    <Label text="%acara.label.deskripsi" GridPane.rowIndex="4" />
+                                    <TextArea fx:id="areaDeskripsi" prefHeight="80.0" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                                 </children>
+                                 <columnConstraints>
+                                    <ColumnConstraints maxWidth="84.0" minWidth="17.0" prefWidth="84.0" />
+                                    <ColumnConstraints maxWidth="203.0" minWidth="136.0" prefWidth="136.0" />
+                                 </columnConstraints>
+                                 <rowConstraints>
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                 </rowConstraints>
+                              </GridPane>
+                              <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleTambahAcara" text="%acara.button.tambah" />
+                              <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleEditAcara" text="%acara.button.edit" />
+                              <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleHapusAcara" text="%acara.button.hapus" />
+                              <Separator prefWidth="200.0" />
+                              <Label text="%acara.label.fiturTemplate">
+                                 <font>
+                                    <Font name="System Bold" size="14.0" />
+                                 </font>
+                              </Label>
+                              <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleExportEventTemplate" text="%acara.button.ekspor" />
+                              <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleImportEventTemplate" text="%acara.button.impor" />
+                           </children>
+                        </VBox>
+                     </right>
+                  </BorderPane>
+               </content>
+            </Tab>
+            <Tab fx:id="kasTab" text="%tab.kas">
+               <content>
+                  <BorderPane>
+                     <center>
+                        <TableView fx:id="tableViewKas" BorderPane.alignment="CENTER">
+                           <columns>
+                              <TableColumn fx:id="tanggalKasKolom" prefWidth="100.0" text="%kas.kolom.tanggal" />
+                              <TableColumn fx:id="jenisKasKolom" prefWidth="100.0" text="%kas.kolom.jenis" />
+                              <TableColumn fx:id="jumlahKasKolom" prefWidth="120.0" text="%kas.kolom.jumlah" />
+                              <TableColumn fx:id="anggotaKasKolom" prefWidth="150.0" text="%kas.kolom.sumberTujuan" />
+                              <TableColumn fx:id="deskripsiKasKolom" prefWidth="270.0" text="%kas.kolom.deskripsi" />
+                           </columns>
+                           <BorderPane.margin>
+                              <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                           </BorderPane.margin>
+                        </TableView>
+                     </center>
+                     <right>
+                        <VBox prefWidth="250.0" spacing="10.0" BorderPane.alignment="CENTER">
+                           <padding>
+                              <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                           </padding>
+                           <children>
+                              <Label text="%kas.title">
+                                 <font>
+                                    <Font name="System Bold" size="14.0" />
+                                 </font>
+                              </Label>
+                              <GridPane hgap="10.0" vgap="10.0">
+                                 <children>
+                                    <Label text="%kas.label.jenis" />
+                                    <ComboBox fx:id="comboJenisKas" prefWidth="170.0" GridPane.columnIndex="1" />
+                                    <Label text="%kas.label.tanggal" GridPane.rowIndex="1" />
+                                    <DatePicker fx:id="datePickerKas" prefWidth="170.0" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                                    <Label text="%kas.label.jumlah" GridPane.rowIndex="2" />
+                                    <TextField fx:id="fieldJumlahKas" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                    <Label fx:id="labelAnggotaKas" text="%kas.label.dariAnggota" GridPane.rowIndex="3" />
+                                    <ComboBox fx:id="comboAnggotaKas" prefWidth="170.0" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                                    <Label fx:id="labelAcaraKas" text="%kas.label.untukAcara" GridPane.rowIndex="3" />
+                                    <ComboBox fx:id="comboAcaraKas" prefWidth="170.0" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                                    <Label text="%kas.label.deskripsi" GridPane.rowIndex="4" />
+                                    <TextArea fx:id="areaDeskripsiKas" prefHeight="100.0" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                                 </children>
+                                 <columnConstraints>
+                                    <ColumnConstraints maxWidth="99.0" minWidth="16.0" prefWidth="99.0" />
+                                    <ColumnConstraints maxWidth="204.0" minWidth="121.0" prefWidth="121.0" />
+                                 </columnConstraints>
+                                 <rowConstraints>
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                    <RowConstraints />
+                                 </rowConstraints>
+                              </GridPane>
+                              <Button maxWidth="1.7976931348623157E308" onAction="#handleTambahKas" text="%kas.button.simpan" />
+                              <Button maxWidth="1.7976931348623157E308" onAction="#handleHapusKas" text="%kas.button.hapus" />
+                              <Separator />
+                              <Label text="%kas.label.totalKas">
+                                 <font>
+                                    <Font name="System Bold" size="12.0" />
+                                 </font>
+                              </Label>
+                              <Label fx:id="labelTotalKas" text="%kas.label.totalKasValue">
+                                 <font>
+                                    <Font name="System Bold" size="16.0" />
+                                 </font>
+                              </Label>
+                              <Separator />
+                              <Button maxWidth="1.7976931348623157E308" onAction="#handleRefreshKasForm" text="%kas.button.refresh" />
+                           </children>
+                        </VBox>
+                     </right>
+                  </BorderPane>
+               </content>
+            </Tab>
+         </tabs>
+      </TabPane>
+   </center>
+   <bottom>
+      <HBox alignment="CENTER_LEFT" prefHeight="30.0" spacing="10.0" style="-fx-border-color: lightgrey; -fx-border-width: 1 0 0 0;" BorderPane.alignment="CENTER">
+         <padding>
+            <Insets left="10.0" />
+         </padding>
+         <children>
+            <Label fx:id="statusLabel" text="%statusbar.ready" />
+            <ProgressBar fx:id="progressBar" progress="0.0" />
+         </children>
+      </HBox>
+   </bottom>
+</BorderPane>
