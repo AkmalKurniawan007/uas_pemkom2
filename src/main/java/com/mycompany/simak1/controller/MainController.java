@@ -10,44 +10,47 @@ import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.kernel.pdf.EncryptionConstants;
+import com.itextpdf.kernel.pdf.WriterProperties;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.property.UnitValue;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.ResourceBundle;
+import java.util.function.Supplier;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.fxml.FXML;
 import javafx.scene.control.*;
-import javafx.stage.Stage;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import javafx.util.StringConverter;
-import javafx.scene.control.TabPane;
-import com.itextpdf.kernel.pdf.EncryptionConstants;
-import com.itextpdf.kernel.pdf.WriterProperties;
-import com.itextpdf.layout.element.Cell;
-import com.itextpdf.layout.element.Table;
-import com.itextpdf.layout.property.UnitValue;
 
 
 public class MainController {
 
-    // Komponen global
+    // (Deklarasi FXML dan properti lainnya tetap sama)
     @FXML private Label statusLabel;
     @FXML private ProgressBar progressBar;
     @FXML private ResourceBundle resources;
     @FXML private TabPane mainTabPane;
-
-    // Komponen FXML untuk Anggota
     @FXML private TableView<Anggota> tableViewAnggota;
     @FXML private TableColumn<Anggota, Integer> idKolom;
     @FXML private TableColumn<Anggota, String> namaKolom;
@@ -61,8 +64,6 @@ public class MainController {
     @FXML private TextField fieldJurusan;
     @FXML private TextField fieldTahunMasuk;
     @FXML private TextField fieldJabatan;
-
-    // Komponen FXML untuk Acara
     @FXML private TableView<Acara> tableViewAcara;
     @FXML private TableColumn<Acara, Integer> idAcaraKolom;
     @FXML private TableColumn<Acara, String> namaAcaraKolom;
@@ -74,8 +75,6 @@ public class MainController {
     @FXML private TextField fieldLokasi;
     @FXML private TextField fieldBudget;
     @FXML private TextArea areaDeskripsi;
-
-    // Komponen FXML untuk Kas
     @FXML private Tab kasTab;
     @FXML private TableView<Kas> tableViewKas;
     @FXML private TableColumn<Kas, LocalDate> tanggalKasKolom;
@@ -92,24 +91,23 @@ public class MainController {
     @FXML private ComboBox<Acara> comboAcaraKas;
     @FXML private TextArea areaDeskripsiKas;
     @FXML private Label labelTotalKas;
-
-    // DAO dan Data Lists
     private AnggotaDao anggotaDao;
     private ObservableList<Anggota> anggotaData;
     private AcaraDao acaraDao;
     private ObservableList<Acara> acaraData;
     private KasDao kasDao;
     private ObservableList<Kas> kasData;
-
     private NumberFormat currencyFormat;
-
 
     @FXML
     public void initialize() {
         this.currencyFormat = NumberFormat.getCurrencyInstance(resources.getLocale());
 
         progressBar.setVisible(false);
-
+        progressBar.progressProperty().unbind();
+        progressBar.setProgress(0);
+        statusLabel.textProperty().unbind();
+        statusLabel.setText(resources.getString("statusbar.ready"));
 
         anggotaDao = new AnggotaDao();
         anggotaData = FXCollections.observableArrayList();
@@ -133,7 +131,6 @@ public class MainController {
         loadAcaraToCombo();
         loadKasData();
 
-        // Listener untuk me-refresh data saat tab Kas dipilih
         if (kasTab != null) {
             kasTab.selectedProperty().addListener((obs, wasSelected, isNowSelected) -> {
                 if (isNowSelected) {
@@ -143,37 +140,39 @@ public class MainController {
         }
     }
 
-    // ===============================================
-    // TAMBAHAN: BLOK MANAJEMEN BAHASA
-    // ===============================================
-    @FXML private void handleLanguageIndonesian(ActionEvent event) { loadLanguage("id"); }
-    @FXML private void handleLanguageEnglish(ActionEvent event) { loadLanguage("en"); }
-    @FXML private void handleLanguageGerman(ActionEvent event) { loadLanguage("de"); }
-    @FXML private void handleLanguageJapanese(ActionEvent event) { loadLanguage("ja"); }
+    private <T> void executeTask(Supplier<List<T>> dataSupplier, ObservableList<T> dataList, String taskName) {
+        Task<List<T>> task = new Task<>() {
+            @Override
+            protected List<T> call() throws Exception {
+                updateMessage("Memuat data " + taskName + "...");
+                List<T> result = dataSupplier.get();
+                updateMessage("Data " + taskName + " berhasil dimuat.");
+                return result;
+            }
+        };
 
-    private void loadLanguage(String langCode) {
-        try {
-            Locale locale = new Locale(langCode);
-            // Pastikan path ke resource bundle sudah benar
-            ResourceBundle bundle = ResourceBundle.getBundle("com/mycompany/simak1/i18n/messages", locale);
+        task.setOnSucceeded(e -> {
+            dataList.setAll(task.getValue());
+            statusLabel.textProperty().unbind();
+            statusLabel.setText(task.getMessage());
+            progressBar.setVisible(false);
+        });
 
-            // Ganti path FXML jika berbeda
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/mycompany/simak1/view/MainView.fxml"), bundle);
-            Parent root = loader.load();
+        task.setOnFailed(e -> {
+            statusLabel.textProperty().unbind();
+            statusLabel.setText("Gagal memuat data " + taskName + ".");
+            showAlert(Alert.AlertType.ERROR, "Gagal", "Terjadi kesalahan: " + task.getException().getMessage());
+            progressBar.setVisible(false);
+        });
 
-            // Dapatkan stage saat ini dan ganti scene-nya
-            Stage stage = (Stage) mainTabPane.getScene().getWindow();
-            stage.setScene(new Scene(root));
-            stage.show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            showAlert(Alert.AlertType.ERROR, "alert.gagal.title", "Gagal memuat tampilan."); // Tampilkan pesan dasar jika bundle gagal
-        }
+        progressBar.setVisible(true);
+        progressBar.progressProperty().bind(task.progressProperty());
+        statusLabel.textProperty().bind(task.messageProperty());
+
+        new Thread(task).start();
     }
-
-    // ===============================================
-    //               MANAJEMEN ANGGOTA
-    // ===============================================
+    
+    // (Metode manajemen Anggota, Acara, dan Kas tetap sama...)
     private void setupTableAnggota() {
         idKolom.setCellValueFactory(new PropertyValueFactory<>("id"));
         namaKolom.setCellValueFactory(new PropertyValueFactory<>("nama"));
@@ -194,12 +193,14 @@ public class MainController {
     }
 
     private void loadAnggotaData() {
-        try {
-            anggotaData.setAll(anggotaDao.getAll());
-            tableViewAnggota.setItems(anggotaData);
-        } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Gagal Memuat", "Gagal memuat data anggota.");
-        }
+        executeTask(() -> {
+            try {
+                return anggotaDao.getAll();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }, anggotaData, "Anggota");
+        tableViewAnggota.setItems(anggotaData);
     }
 
     private void showAnggotaDetails(Anggota anggota) {
@@ -217,7 +218,7 @@ public class MainController {
             fieldJabatan.clear();
         }
     }
-
+    
     @FXML
     private void handleTambahAnggota() {
         try {
@@ -235,7 +236,7 @@ public class MainController {
             showAlert(Alert.AlertType.ERROR, "Gagal", "Gagal menyimpan anggota baru. Periksa kembali data Anda.");
         }
     }
-
+    
     @FXML
     private void handleEditAnggota() {
         Anggota terpilih = tableViewAnggota.getSelectionModel().getSelectedItem();
@@ -255,13 +256,6 @@ public class MainController {
         }
     }
     
-     @FXML
-    private void handleExit(ActionEvent event) {
-        // Mengambil stage (jendela) saat ini dan menutupnya
-        Stage stage = (Stage) mainTabPane.getScene().getWindow();
-        stage.close();
-    }
-
     @FXML
     private void handleHapusAnggota() {
         Anggota terpilih = tableViewAnggota.getSelectionModel().getSelectedItem();
@@ -276,9 +270,6 @@ public class MainController {
         }
     }
 
-    // ===============================================
-    //               MANAJEMEN ACARA
-    // ===============================================
     private void setupTableAcara() {
         idAcaraKolom.setCellValueFactory(new PropertyValueFactory<>("id"));
         namaAcaraKolom.setCellValueFactory(new PropertyValueFactory<>("namaAcara"));
@@ -295,14 +286,16 @@ public class MainController {
             }
         });
     }
-
+    
     private void loadAcaraData() {
-        try {
-            acaraData.setAll(acaraDao.getAll());
-            tableViewAcara.setItems(acaraData);
-        } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Gagal Memuat", "Gagal memuat data acara.");
-        }
+         executeTask(() -> {
+            try {
+                return acaraDao.getAll();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }, acaraData, "Acara");
+        tableViewAcara.setItems(acaraData);
     }
 
     private void showAcaraDetails(Acara acara) {
@@ -392,9 +385,6 @@ public class MainController {
         }
     }
 
-    // ===============================================
-    //               MANAJEMEN KAS
-    // ===============================================
     private void setupTableKas() {
         tanggalKasKolom.setCellValueFactory(new PropertyValueFactory<>("tanggal"));
         jenisKasKolom.setCellValueFactory(new PropertyValueFactory<>("jenis"));
@@ -449,28 +439,36 @@ public class MainController {
     }
 
     private void loadKasData() {
-        try {
-            kasData.setAll(kasDao.getAll());
-            tableViewKas.setItems(kasData);
-            updateTotalKas();
-        } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Gagal", "Gagal memuat data kas.");
-            e.printStackTrace();
-        }
+        executeTask(() -> {
+            try {
+                return kasDao.getAll();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }, kasData, "Transaksi Kas");
+        tableViewKas.setItems(kasData);
+        updateTotalKas();
     }
     
+    // MODIFIKASI: Logika pengisian ComboBox diperbaiki untuk menghindari error ambiguitas
     private void loadAnggotaToCombo() {
         try {
             List<Anggota> anggotaList = anggotaDao.getAll();
-            comboAnggotaKas.getItems().addAll(anggotaList);
+            comboAnggotaKas.getItems().clear(); // Hapus item lama
+            comboAnggotaKas.getItems().add(null); // Tambahkan opsi null untuk "Umum"
+            comboAnggotaKas.getItems().addAll(anggotaList); // Tambahkan semua anggota dari database
         } catch (SQLException e) {
             showAlert(Alert.AlertType.ERROR, "Gagal", "Gagal memuat daftar anggota.");
         }
     }
 
+    // MODIFIKASI: Logika pengisian ComboBox diperbaiki untuk menghindari error ambiguitas
     private void loadAcaraToCombo() {
         try {
-            comboAcaraKas.getItems().addAll(acaraDao.getAll());
+            List<Acara> acaraList = acaraDao.getAll();
+            comboAcaraKas.getItems().clear(); // Hapus item lama
+            comboAcaraKas.getItems().add(null); // Tambahkan opsi null untuk "Lainnya"
+            comboAcaraKas.getItems().addAll(acaraList); // Tambahkan semua acara dari database
         } catch (SQLException e) {
             showAlert(Alert.AlertType.ERROR, "Gagal", "Gagal memuat daftar acara.");
         }
@@ -502,7 +500,7 @@ public class MainController {
             if ("Pemasukan".equals(baru.getJenis())) {
                 Anggota anggotaTerpilih = comboAnggotaKas.getValue();
                 if (anggotaTerpilih != null) baru.setIdAnggota(anggotaTerpilih.getId());
-            } else { // Pengeluaran
+            } else { 
                 Acara acaraTerpilih = comboAcaraKas.getValue();
                 if (acaraTerpilih != null) {
                     baru.setIdAcara(acaraTerpilih.getId());
@@ -514,7 +512,7 @@ public class MainController {
 
             kasDao.save(baru);
             loadKasData(); 
-            loadAnggotaData(); // REFRESH TABEL ANGGOTA
+            loadAnggotaData(); 
             
             fieldJumlahKas.clear();
             areaDeskripsiKas.clear();
@@ -535,7 +533,7 @@ public class MainController {
             try {
                 kasDao.delete(terpilih);
                 loadKasData();
-                loadAnggotaData(); // REFRESH TABEL ANGGOTA
+                loadAnggotaData();
             } catch (SQLException e) {
                  showAlert(Alert.AlertType.ERROR, "Gagal", "Gagal menghapus transaksi.");
             }
@@ -554,12 +552,6 @@ public class MainController {
         Anggota selectedAnggota = comboAnggotaKas.getSelectionModel().getSelectedItem();
         Acara selectedAcara = comboAcaraKas.getSelectionModel().getSelectedItem();
     
-        comboAnggotaKas.getItems().clear();
-        comboAcaraKas.getItems().clear();
-    
-        comboAnggotaKas.getItems().add(null); 
-        comboAcaraKas.getItems().add(null);
-    
         loadAnggotaToCombo();
         loadAcaraToCombo();
     
@@ -568,8 +560,9 @@ public class MainController {
     }
     
     // ===============================================
-    //               FITUR LAINNYA & HELPERS
+    // FITUR LAINNYA & HELPERS
     // ===============================================
+
     @FXML
     private void handleGenerateReport() {
         TextInputDialog dialog = new TextInputDialog("");
@@ -588,116 +581,187 @@ public class MainController {
             File file = fileChooser.showSaveDialog(mainTabPane.getScene().getWindow());
 
             if (file != null) {
-                try {
-                    WriterProperties writerProperties = new WriterProperties()
-                        .setStandardEncryption(
-                            userPassword.getBytes(),
-                            userPassword.getBytes(),
-                            EncryptionConstants.ALLOW_PRINTING,
-                            EncryptionConstants.ENCRYPTION_AES_256);
+                Task<Void> reportTask = new Task<>() {
+                    @Override
+                    protected Void call() throws Exception {
+                        updateMessage("Membuat laporan PDF...");
+                        try {
+                            WriterProperties writerProperties = new WriterProperties()
+                                .setStandardEncryption(
+                                    userPassword.getBytes(),
+                                    userPassword.getBytes(),
+                                    EncryptionConstants.ALLOW_PRINTING,
+                                    EncryptionConstants.ENCRYPTION_AES_256);
 
-                    PdfWriter writer = new PdfWriter(file.getAbsolutePath(), writerProperties);
-                    PdfDocument pdf = new PdfDocument(writer);
-                    Document document = new Document(pdf);
-                    
-                    NumberFormat rpFormat = NumberFormat.getCurrencyInstance(new Locale("in", "ID"));
+                            PdfWriter writer = new PdfWriter(file.getAbsolutePath(), writerProperties);
+                            PdfDocument pdf = new PdfDocument(writer);
+                            Document document = new Document(pdf);
+                            
+                            NumberFormat rpFormat = NumberFormat.getCurrencyInstance(new Locale("in", "ID"));
+                            
+                            document.add(new Paragraph("Laporan Tahunan Komprehensif").setBold().setFontSize(18).setUnderline());
+                            document.add(new Paragraph("Dihasilkan pada: " + LocalDate.now()));
+                            document.add(new Paragraph("Dokumen ini dilindungi oleh kata sandi.\n\n"));
 
-                    // Judul Laporan
-                    document.add(new Paragraph("Laporan Tahunan Komprehensif").setBold().setFontSize(18).setUnderline());
-                    document.add(new Paragraph("Dihasilkan pada: " + LocalDate.now()));
-                    document.add(new Paragraph("Dokumen ini dilindungi oleh kata sandi.\n\n"));
+                            document.add(new Paragraph("Data Anggota").setBold().setFontSize(14));
+                            float[] anggotaColumnWidths = {1, 4, 3, 3, 2, 3};
+                            Table anggotaTable = new Table(UnitValue.createPercentArray(anggotaColumnWidths));
+                            anggotaTable.setWidth(UnitValue.createPercentValue(100));
+                            anggotaTable.addHeaderCell(new Cell().add(new Paragraph("ID")));
+                            anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Nama")));
+                            anggotaTable.addHeaderCell(new Cell().add(new Paragraph("No. Induk")));
+                            anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Jurusan")));
+                            anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Masuk")));
+                            anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Jabatan")));
 
-                    // Tabel Anggota
-                    document.add(new Paragraph("Data Anggota").setBold().setFontSize(14));
-                    float[] anggotaColumnWidths = {1, 4, 3, 3, 2, 3};
-                    Table anggotaTable = new Table(UnitValue.createPercentArray(anggotaColumnWidths));
-                    anggotaTable.setWidth(UnitValue.createPercentValue(100));
-                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("ID")));
-                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Nama")));
-                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("No. Induk")));
-                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Jurusan")));
-                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Masuk")));
-                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Jabatan")));
+                            for(Anggota anggota : tableViewAnggota.getItems()) {
+                                anggotaTable.addCell(new Cell().add(new Paragraph(String.valueOf(anggota.getId()))));
+                                anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getNama())));
+                                anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getNoInduk())));
+                                anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getJurusan())));
+                                anggotaTable.addCell(new Cell().add(new Paragraph(String.valueOf(anggota.getTahunMasuk()))));
+                                anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getJabatan())));
+                            }
+                            document.add(anggotaTable);
 
-                    for(Anggota anggota : tableViewAnggota.getItems()) {
-                        anggotaTable.addCell(new Cell().add(new Paragraph(String.valueOf(anggota.getId()))));
-                        anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getNama())));
-                        anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getNoInduk())));
-                        anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getJurusan())));
-                        anggotaTable.addCell(new Cell().add(new Paragraph(String.valueOf(anggota.getTahunMasuk()))));
-                        anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getJabatan())));
-                    }
-                    document.add(anggotaTable);
+                            document.add(new Paragraph("\nData Acara").setBold().setFontSize(14));
+                            float[] acaraColumnWidths = {1, 4, 3, 4, 3};
+                            Table acaraTable = new Table(UnitValue.createPercentArray(acaraColumnWidths));
+                            acaraTable.setWidth(UnitValue.createPercentValue(100));
+                            acaraTable.addHeaderCell(new Cell().add(new Paragraph("ID")));
+                            acaraTable.addHeaderCell(new Cell().add(new Paragraph("Nama Acara")));
+                            acaraTable.addHeaderCell(new Cell().add(new Paragraph("Tanggal")));
+                            acaraTable.addHeaderCell(new Cell().add(new Paragraph("Lokasi")));
+                            acaraTable.addHeaderCell(new Cell().add(new Paragraph("Budget")));
 
-                    // Tabel Acara
-                    document.add(new Paragraph("\nData Acara").setBold().setFontSize(14));
-                    float[] acaraColumnWidths = {1, 4, 3, 4, 3};
-                    Table acaraTable = new Table(UnitValue.createPercentArray(acaraColumnWidths));
-                    acaraTable.setWidth(UnitValue.createPercentValue(100));
-                    acaraTable.addHeaderCell(new Cell().add(new Paragraph("ID")));
-                    acaraTable.addHeaderCell(new Cell().add(new Paragraph("Nama Acara")));
-                    acaraTable.addHeaderCell(new Cell().add(new Paragraph("Tanggal")));
-                    acaraTable.addHeaderCell(new Cell().add(new Paragraph("Lokasi")));
-                    acaraTable.addHeaderCell(new Cell().add(new Paragraph("Budget")));
+                            for(Acara acara : tableViewAcara.getItems()) {
+                                acaraTable.addCell(new Cell().add(new Paragraph(String.valueOf(acara.getId()))));
+                                acaraTable.addCell(new Cell().add(new Paragraph(acara.getNamaAcara())));
+                                acaraTable.addCell(new Cell().add(new Paragraph(acara.getTanggal().toString())));
+                                acaraTable.addCell(new Cell().add(new Paragraph(acara.getLokasi())));
+                                acaraTable.addCell(new Cell().add(new Paragraph(rpFormat.format(acara.getBudget()))));
+                            }
+                            document.add(acaraTable);
 
-                    for(Acara acara : tableViewAcara.getItems()) {
-                        acaraTable.addCell(new Cell().add(new Paragraph(String.valueOf(acara.getId()))));
-                        acaraTable.addCell(new Cell().add(new Paragraph(acara.getNamaAcara())));
-                        acaraTable.addCell(new Cell().add(new Paragraph(acara.getTanggal().toString())));
-                        acaraTable.addCell(new Cell().add(new Paragraph(acara.getLokasi())));
-                        acaraTable.addCell(new Cell().add(new Paragraph(rpFormat.format(acara.getBudget()))));
-                    }
-                    document.add(acaraTable);
+                            document.add(new Paragraph("\nData Transaksi Kas").setBold().setFontSize(14));
+                            float[] kasColumnWidths = {3, 2, 3, 4, 5};
+                            Table kasTable = new Table(UnitValue.createPercentArray(kasColumnWidths));
+                            kasTable.setWidth(UnitValue.createPercentValue(100));
+                            kasTable.addHeaderCell(new Cell().add(new Paragraph("Tanggal")));
+                            kasTable.addHeaderCell(new Cell().add(new Paragraph("Jenis")));
+                            kasTable.addHeaderCell(new Cell().add(new Paragraph("Jumlah")));
+                            kasTable.addHeaderCell(new Cell().add(new Paragraph("Sumber/Tujuan")));
+                            kasTable.addHeaderCell(new Cell().add(new Paragraph("Deskripsi")));
 
-                    // Tabel Kas
-                    document.add(new Paragraph("\nData Transaksi Kas").setBold().setFontSize(14));
-                    float[] kasColumnWidths = {3, 2, 3, 4, 5};
-                    Table kasTable = new Table(UnitValue.createPercentArray(kasColumnWidths));
-                    kasTable.setWidth(UnitValue.createPercentValue(100));
-                    kasTable.addHeaderCell(new Cell().add(new Paragraph("Tanggal")));
-                    kasTable.addHeaderCell(new Cell().add(new Paragraph("Jenis")));
-                    kasTable.addHeaderCell(new Cell().add(new Paragraph("Jumlah")));
-                    kasTable.addHeaderCell(new Cell().add(new Paragraph("Sumber/Tujuan")));
-                    kasTable.addHeaderCell(new Cell().add(new Paragraph("Deskripsi")));
+                            for(Kas kas : tableViewKas.getItems()) {
+                                kasTable.addCell(new Cell().add(new Paragraph(kas.getTanggal().toString())));
+                                kasTable.addCell(new Cell().add(new Paragraph(kas.getJenis())));
+                                kasTable.addCell(new Cell().add(new Paragraph(rpFormat.format(kas.getJumlah()))));
+                                String sumberTujuan = "";
+                                if ("Pemasukan".equals(kas.getJenis())) {
+                                    sumberTujuan = kas.getNamaAnggota() != null ? kas.getNamaAnggota() : "Umum/Lainnya";
+                                } else {
+                                    sumberTujuan = kas.getNamaAcara() != null ? kas.getNamaAcara() : "Lainnya";
+                                }
+                                kasTable.addCell(new Cell().add(new Paragraph(sumberTujuan)));
+                                kasTable.addCell(new Cell().add(new Paragraph(kas.getDeskripsi())));
+                            }
+                            document.add(kasTable);
 
-                    for(Kas kas : tableViewKas.getItems()) {
-                        kasTable.addCell(new Cell().add(new Paragraph(kas.getTanggal().toString())));
-                        kasTable.addCell(new Cell().add(new Paragraph(kas.getJenis())));
-                        kasTable.addCell(new Cell().add(new Paragraph(rpFormat.format(kas.getJumlah()))));
-                        String sumberTujuan = "";
-                        if ("Pemasukan".equals(kas.getJenis())) {
-                            sumberTujuan = kas.getNamaAnggota() != null ? kas.getNamaAnggota() : "Umum/Lainnya";
-                        } else {
-                            sumberTujuan = kas.getNamaAcara() != null ? kas.getNamaAcara() : "Lainnya";
+                            document.close();
+                        } catch (IOException e) {
+                            throw new RuntimeException("Gagal menulis file: " + e.getMessage(), e);
                         }
-                        kasTable.addCell(new Cell().add(new Paragraph(sumberTujuan)));
-                        kasTable.addCell(new Cell().add(new Paragraph(kas.getDeskripsi())));
+                        updateMessage("Laporan berhasil dibuat.");
+                        return null;
                     }
-                    document.add(kasTable);
-
-                    document.close();
+                };
+                
+                reportTask.setOnSucceeded(e -> {
+                    progressBar.setVisible(false);
+                    statusLabel.textProperty().unbind();
+                    statusLabel.setText("Laporan berhasil dibuat.");
                     showAlert(Alert.AlertType.INFORMATION, "Sukses", "Laporan terenkripsi berhasil dibuat di:\n" + file.getAbsolutePath());
+                });
 
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    showAlert(Alert.AlertType.ERROR, "Gagal", "Terjadi kesalahan saat membuat laporan.");
-                }
+                reportTask.setOnFailed(e -> {
+                    progressBar.setVisible(false);
+                    statusLabel.textProperty().unbind();
+                    statusLabel.setText("Gagal membuat laporan.");
+                    showAlert(Alert.AlertType.ERROR, "Gagal", "Terjadi kesalahan saat membuat laporan: " + reportTask.getException().getMessage());
+                });
+
+                progressBar.setVisible(true);
+                progressBar.progressProperty().bind(reportTask.progressProperty());
+                statusLabel.textProperty().bind(reportTask.messageProperty());
+
+                new Thread(reportTask).start();
             }
         } else {
-            // Pengguna menekan cancel atau tidak memasukkan kata sandi
              showAlert(Alert.AlertType.WARNING, "Dibatalkan", "Pembuatan laporan dibatalkan karena tidak ada kata sandi yang dimasukkan.");
         }
     }
-
-
+    
+    @FXML
+    private void handleExit(ActionEvent event) {
+        Stage stage = (Stage) mainTabPane.getScene().getWindow();
+        stage.close();
+    }
+    
     @FXML
     private void handleExportEventTemplate() {
-        // ... (Kode tidak diubah)
+        Acara selectedAcara = tableViewAcara.getSelectionModel().getSelectedItem();
+        if (selectedAcara == null) {
+            showAlert(Alert.AlertType.WARNING, "Tidak Ada Pilihan", "Pilih sebuah acara dari tabel untuk diekspor sebagai template.");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Simpan Template Acara");
+        fileChooser.setInitialFileName("template-" + selectedAcara.getNamaAcara().replaceAll("\\s+", "-") + ".properties");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Template Acara (*.properties)", "*.properties"));
+        File file = fileChooser.showSaveDialog(mainTabPane.getScene().getWindow());
+
+        if (file != null) {
+            try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+                writer.println("namaAcara=" + selectedAcara.getNamaAcara());
+                writer.println("lokasi=" + selectedAcara.getLokasi());
+                writer.println("deskripsi=" + selectedAcara.getDeskripsi().replace("\n", "\\n"));
+                
+                showAlert(Alert.AlertType.INFORMATION, "Sukses", "Template acara berhasil disimpan di:\n" + file.getAbsolutePath());
+            } catch (IOException e) {
+                showAlert(Alert.AlertType.ERROR, "Gagal Menyimpan", "Terjadi kesalahan saat menyimpan file template.");
+                e.printStackTrace();
+            }
+        }
     }
 
     @FXML
     private void handleImportEventTemplate() {
-       // ... (Kode tidak diubah)
+       FileChooser fileChooser = new FileChooser();
+       fileChooser.setTitle("Buka Template Acara");
+       fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Template Acara (*.properties)", "*.properties"));
+       File file = fileChooser.showOpenDialog(mainTabPane.getScene().getWindow());
+
+       if (file != null) {
+           Properties props = new Properties();
+           try (FileInputStream fis = new FileInputStream(file)) {
+               props.load(fis);
+               
+               fieldNamaAcara.setText(props.getProperty("namaAcara", ""));
+               fieldLokasi.setText(props.getProperty("lokasi", ""));
+               areaDeskripsi.setText(props.getProperty("deskripsi", "").replace("\\n", "\n"));
+
+               datePickerTanggal.setValue(null);
+               fieldBudget.clear();
+
+               showAlert(Alert.AlertType.INFORMATION, "Sukses", "Template berhasil dimuat. Silakan isi tanggal dan budget.");
+
+           } catch (IOException e) {
+               showAlert(Alert.AlertType.ERROR, "Gagal Membaca", "Terjadi kesalahan saat membaca file template.");
+               e.printStackTrace();
+           }
+       }
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {
@@ -706,5 +770,27 @@ public class MainController {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+    
+    @FXML private void handleLanguageIndonesian(ActionEvent event) { loadLanguage("id"); }
+    @FXML private void handleLanguageEnglish(ActionEvent event) { loadLanguage("en"); }
+    @FXML private void handleLanguageGerman(ActionEvent event) { loadLanguage("de"); }
+    @FXML private void handleLanguageJapanese(ActionEvent event) { loadLanguage("ja"); }
+
+    private void loadLanguage(String langCode) {
+        try {
+            Locale locale = new Locale(langCode);
+            ResourceBundle bundle = ResourceBundle.getBundle("com/mycompany/simak1/i18n/messages", locale);
+
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/mycompany/simak1/view/MainView.fxml"), bundle);
+            Parent root = loader.load();
+
+            Stage stage = (Stage) mainTabPane.getScene().getWindow();
+            stage.setScene(new Scene(root));
+            stage.show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "Gagal Memuat Tampilan", "Gagal memuat tampilan untuk bahasa yang dipilih.");
+        }
     }
 }
