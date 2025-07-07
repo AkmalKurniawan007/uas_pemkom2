@@ -6,38 +6,38 @@ import com.mycompany.simak1.dao.KasDao;
 import com.mycompany.simak1.model.Acara;
 import com.mycompany.simak1.model.Anggota;
 import com.mycompany.simak1.model.Kas;
-import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Paragraph;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.ResourceBundle;
-import java.util.concurrent.ExecutionException;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
-import javafx.fxml.FXMLLoader;   
-import javafx.scene.Parent;      
-import javafx.scene.Scene; 
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
-import javafx.stage.Stage;  
+import javafx.stage.Stage;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.FileChooser;
 import javafx.util.StringConverter;
 import javafx.scene.control.TabPane;
+import com.itextpdf.kernel.pdf.EncryptionConstants;
+import com.itextpdf.kernel.pdf.WriterProperties;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.property.UnitValue;
+
 
 public class MainController {
 
@@ -100,16 +100,16 @@ public class MainController {
     private ObservableList<Acara> acaraData;
     private KasDao kasDao;
     private ObservableList<Kas> kasData;
-    
+
     private NumberFormat currencyFormat;
-    
+
 
     @FXML
     public void initialize() {
         this.currencyFormat = NumberFormat.getCurrencyInstance(resources.getLocale());
 
         progressBar.setVisible(false);
-        
+
 
         anggotaDao = new AnggotaDao();
         anggotaData = FXCollections.observableArrayList();
@@ -124,7 +124,7 @@ public class MainController {
         loadAcaraData();
         tableViewAcara.getSelectionModel().selectedItemProperty().addListener(
             (obs, oldSelection, newSelection) -> showAcaraDetails(newSelection));
-        
+
         kasDao = new KasDao();
         kasData = FXCollections.observableArrayList();
         setupTableKas();
@@ -132,7 +132,7 @@ public class MainController {
         loadAnggotaToCombo();
         loadAcaraToCombo();
         loadKasData();
-        
+
         // Listener untuk me-refresh data saat tab Kas dipilih
         if (kasTab != null) {
             kasTab.selectedProperty().addListener((obs, wasSelected, isNowSelected) -> {
@@ -142,7 +142,7 @@ public class MainController {
             });
         }
     }
-    
+
     // ===============================================
     // TAMBAHAN: BLOK MANAJEMEN BAHASA
     // ===============================================
@@ -160,7 +160,7 @@ public class MainController {
             // Ganti path FXML jika berbeda
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/mycompany/simak1/view/MainView.fxml"), bundle);
             Parent root = loader.load();
-            
+
             // Dapatkan stage saat ini dan ganti scene-nya
             Stage stage = (Stage) mainTabPane.getScene().getWindow();
             stage.setScene(new Scene(root));
@@ -419,7 +419,7 @@ public class MainController {
             }
         });
     }
-    
+
     private void setupFormKas() {
         comboJenisKas.getItems().addAll("Pemasukan", "Pengeluaran");
         datePickerKas.setValue(LocalDate.now());
@@ -447,7 +447,7 @@ public class MainController {
         
         comboJenisKas.setValue("Pemasukan");
     }
-    
+
     private void loadKasData() {
         try {
             kasData.setAll(kasDao.getAll());
@@ -572,8 +572,123 @@ public class MainController {
     // ===============================================
     @FXML
     private void handleGenerateReport() {
-        // ... (Kode tidak diubah)
+        TextInputDialog dialog = new TextInputDialog("");
+        dialog.setTitle("Enkripsi Laporan");
+        dialog.setHeaderText("Masukkan Kata Sandi untuk Melindungi Laporan PDF");
+        dialog.setContentText("Kata Sandi:");
+
+        Optional<String> result = dialog.showAndWait();
+        if (result.isPresent() && !result.get().isEmpty()){
+            String userPassword = result.get();
+
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Simpan Laporan Terenkripsi");
+            fileChooser.setInitialFileName("Laporan_Lengkap_Terenkripsi.pdf");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF Files", "*.pdf"));
+            File file = fileChooser.showSaveDialog(mainTabPane.getScene().getWindow());
+
+            if (file != null) {
+                try {
+                    WriterProperties writerProperties = new WriterProperties()
+                        .setStandardEncryption(
+                            userPassword.getBytes(),
+                            userPassword.getBytes(),
+                            EncryptionConstants.ALLOW_PRINTING,
+                            EncryptionConstants.ENCRYPTION_AES_256);
+
+                    PdfWriter writer = new PdfWriter(file.getAbsolutePath(), writerProperties);
+                    PdfDocument pdf = new PdfDocument(writer);
+                    Document document = new Document(pdf);
+                    
+                    NumberFormat rpFormat = NumberFormat.getCurrencyInstance(new Locale("in", "ID"));
+
+                    // Judul Laporan
+                    document.add(new Paragraph("Laporan Tahunan Komprehensif").setBold().setFontSize(18).setUnderline());
+                    document.add(new Paragraph("Dihasilkan pada: " + LocalDate.now()));
+                    document.add(new Paragraph("Dokumen ini dilindungi oleh kata sandi.\n\n"));
+
+                    // Tabel Anggota
+                    document.add(new Paragraph("Data Anggota").setBold().setFontSize(14));
+                    float[] anggotaColumnWidths = {1, 4, 3, 3, 2, 3};
+                    Table anggotaTable = new Table(UnitValue.createPercentArray(anggotaColumnWidths));
+                    anggotaTable.setWidth(UnitValue.createPercentValue(100));
+                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("ID")));
+                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Nama")));
+                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("No. Induk")));
+                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Jurusan")));
+                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Masuk")));
+                    anggotaTable.addHeaderCell(new Cell().add(new Paragraph("Jabatan")));
+
+                    for(Anggota anggota : tableViewAnggota.getItems()) {
+                        anggotaTable.addCell(new Cell().add(new Paragraph(String.valueOf(anggota.getId()))));
+                        anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getNama())));
+                        anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getNoInduk())));
+                        anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getJurusan())));
+                        anggotaTable.addCell(new Cell().add(new Paragraph(String.valueOf(anggota.getTahunMasuk()))));
+                        anggotaTable.addCell(new Cell().add(new Paragraph(anggota.getJabatan())));
+                    }
+                    document.add(anggotaTable);
+
+                    // Tabel Acara
+                    document.add(new Paragraph("\nData Acara").setBold().setFontSize(14));
+                    float[] acaraColumnWidths = {1, 4, 3, 4, 3};
+                    Table acaraTable = new Table(UnitValue.createPercentArray(acaraColumnWidths));
+                    acaraTable.setWidth(UnitValue.createPercentValue(100));
+                    acaraTable.addHeaderCell(new Cell().add(new Paragraph("ID")));
+                    acaraTable.addHeaderCell(new Cell().add(new Paragraph("Nama Acara")));
+                    acaraTable.addHeaderCell(new Cell().add(new Paragraph("Tanggal")));
+                    acaraTable.addHeaderCell(new Cell().add(new Paragraph("Lokasi")));
+                    acaraTable.addHeaderCell(new Cell().add(new Paragraph("Budget")));
+
+                    for(Acara acara : tableViewAcara.getItems()) {
+                        acaraTable.addCell(new Cell().add(new Paragraph(String.valueOf(acara.getId()))));
+                        acaraTable.addCell(new Cell().add(new Paragraph(acara.getNamaAcara())));
+                        acaraTable.addCell(new Cell().add(new Paragraph(acara.getTanggal().toString())));
+                        acaraTable.addCell(new Cell().add(new Paragraph(acara.getLokasi())));
+                        acaraTable.addCell(new Cell().add(new Paragraph(rpFormat.format(acara.getBudget()))));
+                    }
+                    document.add(acaraTable);
+
+                    // Tabel Kas
+                    document.add(new Paragraph("\nData Transaksi Kas").setBold().setFontSize(14));
+                    float[] kasColumnWidths = {3, 2, 3, 4, 5};
+                    Table kasTable = new Table(UnitValue.createPercentArray(kasColumnWidths));
+                    kasTable.setWidth(UnitValue.createPercentValue(100));
+                    kasTable.addHeaderCell(new Cell().add(new Paragraph("Tanggal")));
+                    kasTable.addHeaderCell(new Cell().add(new Paragraph("Jenis")));
+                    kasTable.addHeaderCell(new Cell().add(new Paragraph("Jumlah")));
+                    kasTable.addHeaderCell(new Cell().add(new Paragraph("Sumber/Tujuan")));
+                    kasTable.addHeaderCell(new Cell().add(new Paragraph("Deskripsi")));
+
+                    for(Kas kas : tableViewKas.getItems()) {
+                        kasTable.addCell(new Cell().add(new Paragraph(kas.getTanggal().toString())));
+                        kasTable.addCell(new Cell().add(new Paragraph(kas.getJenis())));
+                        kasTable.addCell(new Cell().add(new Paragraph(rpFormat.format(kas.getJumlah()))));
+                        String sumberTujuan = "";
+                        if ("Pemasukan".equals(kas.getJenis())) {
+                            sumberTujuan = kas.getNamaAnggota() != null ? kas.getNamaAnggota() : "Umum/Lainnya";
+                        } else {
+                            sumberTujuan = kas.getNamaAcara() != null ? kas.getNamaAcara() : "Lainnya";
+                        }
+                        kasTable.addCell(new Cell().add(new Paragraph(sumberTujuan)));
+                        kasTable.addCell(new Cell().add(new Paragraph(kas.getDeskripsi())));
+                    }
+                    document.add(kasTable);
+
+                    document.close();
+                    showAlert(Alert.AlertType.INFORMATION, "Sukses", "Laporan terenkripsi berhasil dibuat di:\n" + file.getAbsolutePath());
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    showAlert(Alert.AlertType.ERROR, "Gagal", "Terjadi kesalahan saat membuat laporan.");
+                }
+            }
+        } else {
+            // Pengguna menekan cancel atau tidak memasukkan kata sandi
+             showAlert(Alert.AlertType.WARNING, "Dibatalkan", "Pembuatan laporan dibatalkan karena tidak ada kata sandi yang dimasukkan.");
+        }
     }
+
 
     @FXML
     private void handleExportEventTemplate() {
